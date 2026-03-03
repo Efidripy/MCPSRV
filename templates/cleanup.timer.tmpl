@@ -1,0 +1,9 @@
+[Unit]
+Description=Daily cleanup timer for MCP workspaces
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+
+[Install]
+WantedBy=timers.target
