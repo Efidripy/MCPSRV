@@ -16,57 +16,27 @@ sudo ./install.sh \
 
 ## Install via sudo + curl/wget
 
-### 1) Рекомендуемый способ: standalone bootstrap
-
-```bash
-sudo bash -c 'curl -fsSL https://raw.githubusercontent.com/Efidripy/MCPSRV/main/bootstrap.sh -o /tmp/mcpsrv-bootstrap.sh && chmod +x /tmp/mcpsrv-bootstrap.sh && /tmp/mcpsrv-bootstrap.sh'
-```
-
-```bash
-sudo bash -c 'wget -qO /tmp/mcpsrv-bootstrap.sh https://raw.githubusercontent.com/Efidripy/MCPSRV/main/bootstrap.sh && chmod +x /tmp/mcpsrv-bootstrap.sh && /tmp/mcpsrv-bootstrap.sh'
-```
-
-### 2) С флагами (неинтерактивно)
-
-```bash
-sudo bash -c 'curl -fsSL https://raw.githubusercontent.com/Efidripy/MCPSRV/main/bootstrap.sh -o /tmp/mcpsrv-bootstrap.sh && chmod +x /tmp/mcpsrv-bootstrap.sh && /tmp/mcpsrv-bootstrap.sh --domain example.com --path /abc123xyz/ --email admin@example.com --github-user your-org-or-user --assume-yes'
-```
-
-### 3) Альтернатива: raw install.sh (с внутренним bootstrap)
+### 1) Без флагов (интерактивный режим)
 
 ```bash
 sudo bash -c 'curl -fsSL https://raw.githubusercontent.com/Efidripy/MCPSRV/main/install.sh -o /tmp/mcp-install.sh && chmod +x /tmp/mcp-install.sh && /tmp/mcp-install.sh'
 ```
 
-> `bootstrap.sh` всегда тянет полный архив репозитория перед запуском `install.sh`, поэтому это самый стабильный способ для copy/paste.
-
-## Troubleshooting
-
-- **Не используйте URL вида `https://github.com/.../blob/...` для запуска скриптов** — это HTML-страница, а не shell-файл (`<!DOCTYPE html>`).
-- Правильные URL для скриптов должны быть из `raw.githubusercontent.com`.
-- Быстрая проверка, что файл действительно shell-скрипт:
-
 ```bash
-head -n 1 /tmp/mcp-install.sh
-# ожидается: #!/usr/bin/env bash
+sudo bash -c 'wget -qO /tmp/mcp-install.sh https://raw.githubusercontent.com/Efidripy/MCPSRV/main/install.sh && chmod +x /tmp/mcp-install.sh && /tmp/mcp-install.sh'
 ```
 
-- Если первая строка не shebang, удалите файл и скачайте заново из raw-ссылки.
+> В этом режиме инсталлятор задаст вопросы по обязательным параметрам (`domain`, `email`, `github-user`) и сгенерирует случайный `path`, если вы его не введете в формате `/.../`.
 
-- Если у вас `80.conf` лежит в `/etc/nginx/sites-available/`, это теперь дефолтный путь для инсталлятора.
-- Если путь другой, передайте явно:
+### 2) С флагами (полностью неинтерактивно)
 
 ```bash
---http80-conf /your/path/to/80.conf --stream-conf /your/path/to/stream.conf
+sudo bash -c 'curl -fsSL https://raw.githubusercontent.com/Efidripy/MCPSRV/main/install.sh -o /tmp/mcp-install.sh && chmod +x /tmp/mcp-install.sh && /tmp/mcp-install.sh --domain example.com --path /abc123xyz/ --email admin@example.com --github-user your-org-or-user --assume-yes'
 ```
 
-- Инсталлятор автоматически ищет stream конфиг в:
-  - `/etc/nginx/stream/stream.conf`
-  - `/etc/nginx/stream-enabled/stream.conf`
-- Инсталлятор автоматически ищет HTTP:80 конфиг в:
-  - `/etc/nginx/sites-available/80.conf`
-  - `/etc/nginx/conf.d/80.conf`
-- Если HTTP:80 конфиг отсутствует, создается базовый `server { listen 80 ... }` и в него добавляется ACME location.
+```bash
+sudo bash -c 'wget -qO /tmp/mcp-install.sh https://raw.githubusercontent.com/Efidripy/MCPSRV/main/install.sh && chmod +x /tmp/mcp-install.sh && /tmp/mcp-install.sh --domain example.com --path /abc123xyz/ --email admin@example.com --github-user your-org-or-user --assume-yes'
+```
 
 ## Re-run / update
 
