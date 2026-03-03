@@ -19,11 +19,11 @@ sudo ./install.sh \
 ### 1) Без флагов (интерактивный режим)
 
 ```bash
-sudo bash -c 'curl -fsSL https://github.com/Efidripy/MCPSRV/blob/main/install.sh -o /tmp/mcp-install.sh && chmod +x /tmp/mcp-install.sh && /tmp/mcp-install.sh'
+sudo bash -c 'curl -fsSL https://raw.githubusercontent.com/Efidripy/MCPSRV/main/install.sh -o /tmp/mcp-install.sh && chmod +x /tmp/mcp-install.sh && /tmp/mcp-install.sh'
 ```
 
 ```bash
-sudo bash -c 'wget -qO /tmp/mcp-install.sh https://github.com/Efidripy/MCPSRV/blob/main/install.sh && chmod +x /tmp/mcp-install.sh && /tmp/mcp-install.sh'
+sudo bash -c 'wget -qO /tmp/mcp-install.sh https://raw.githubusercontent.com/Efidripy/MCPSRV/main/install.sh && chmod +x /tmp/mcp-install.sh && /tmp/mcp-install.sh'
 ```
 
 > В этом режиме инсталлятор задаст вопросы по обязательным параметрам (`domain`, `email`, `github-user`) и сгенерирует случайный `path`, если вы его не введете в формате `/.../`.
@@ -31,11 +31,11 @@ sudo bash -c 'wget -qO /tmp/mcp-install.sh https://github.com/Efidripy/MCPSRV/bl
 ### 2) С флагами (полностью неинтерактивно)
 
 ```bash
-sudo bash -c 'curl -fsSL https://github.com/Efidripy/MCPSRV/blob/main/install.sh -o /tmp/mcp-install.sh && chmod +x /tmp/mcp-install.sh && /tmp/mcp-install.sh --domain example.com --path /abc123xyz/ --email admin@example.com --github-user your-org-or-user --assume-yes'
+sudo bash -c 'curl -fsSL https://raw.githubusercontent.com/Efidripy/MCPSRV/main/install.sh -o /tmp/mcp-install.sh && chmod +x /tmp/mcp-install.sh && /tmp/mcp-install.sh --domain example.com --path /abc123xyz/ --email admin@example.com --github-user your-org-or-user --assume-yes'
 ```
 
 ```bash
-sudo bash -c 'wget -qO /tmp/mcp-install.sh https://github.com/Efidripy/MCPSRV/blob/main/install.sh && chmod +x /tmp/mcp-install.sh && /tmp/mcp-install.sh --domain example.com --path /abc123xyz/ --email admin@example.com --github-user your-org-or-user --assume-yes'
+sudo bash -c 'wget -qO /tmp/mcp-install.sh https://raw.githubusercontent.com/Efidripy/MCPSRV/main/install.sh && chmod +x /tmp/mcp-install.sh && /tmp/mcp-install.sh --domain example.com --path /abc123xyz/ --email admin@example.com --github-user your-org-or-user --assume-yes'
 ```
 
 ## Re-run / update
