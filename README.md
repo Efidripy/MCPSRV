@@ -14,6 +14,30 @@ sudo ./install.sh \
 
 > If `--install-dir` and `--workspaces-dir` are omitted, installer uses default `/opt/MCPSRV` and `/opt/MCPSRV/workspaces`, and prints this in logs.
 
+## Install via sudo + curl/wget
+
+### 1) Без флагов (интерактивный режим)
+
+```bash
+sudo bash -c 'curl -fsSL https://example.com/mcp-runner-installer/install.sh -o /tmp/mcp-install.sh && chmod +x /tmp/mcp-install.sh && /tmp/mcp-install.sh'
+```
+
+```bash
+sudo bash -c 'wget -qO /tmp/mcp-install.sh https://example.com/mcp-runner-installer/install.sh && chmod +x /tmp/mcp-install.sh && /tmp/mcp-install.sh'
+```
+
+> В этом режиме инсталлятор задаст вопросы по обязательным параметрам (`domain`, `email`, `github-user`) и сгенерирует случайный `path`, если вы его не введете в формате `/.../`.
+
+### 2) С флагами (полностью неинтерактивно)
+
+```bash
+sudo bash -c 'curl -fsSL https://example.com/mcp-runner-installer/install.sh -o /tmp/mcp-install.sh && chmod +x /tmp/mcp-install.sh && /tmp/mcp-install.sh --domain example.com --path /abc123xyz/ --email admin@example.com --github-user your-org-or-user --assume-yes'
+```
+
+```bash
+sudo bash -c 'wget -qO /tmp/mcp-install.sh https://example.com/mcp-runner-installer/install.sh && chmod +x /tmp/mcp-install.sh && /tmp/mcp-install.sh --domain example.com --path /abc123xyz/ --email admin@example.com --github-user your-org-or-user --assume-yes'
+```
+
 ## Re-run / update
 
 ```bash
