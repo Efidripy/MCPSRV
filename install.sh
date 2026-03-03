@@ -159,6 +159,30 @@ conf_path.write_text(text)
 PYACME
 }
 
+
+ensure_system_tools() {
+  local missing=()
+  command -v python3 >/dev/null 2>&1 || missing+=(python3)
+  command -v pip3 >/dev/null 2>&1 || missing+=(python3-pip)
+  command -v git >/dev/null 2>&1 || missing+=(git)
+  command -v openssl >/dev/null 2>&1 || missing+=(openssl)
+  command -v certbot >/dev/null 2>&1 || missing+=(certbot)
+  command -v tar >/dev/null 2>&1 || missing+=(tar)
+  command -v curl >/dev/null 2>&1 || command -v wget >/dev/null 2>&1 || missing+=(curl)
+
+  if (( ${#missing[@]} > 0 )); then
+    echo "[info] Installing missing system packages: ${missing[*]}"
+    apt-get update
+    apt-get install -y "${missing[@]}"
+  fi
+
+  if ! python3 -m venv --help >/dev/null 2>&1; then
+    echo "[info] Installing python3-venv (required for virtualenv setup)"
+    apt-get update
+    apt-get install -y python3-venv
+  fi
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --domain) DOMAIN="$2"; shift 2;;
