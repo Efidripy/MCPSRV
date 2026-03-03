@@ -13,6 +13,43 @@ DOMAIN=""; PATH_PREFIX=""; EMAIL=""; GITHUB_USER=""
 BACKEND_PORT="21582"; STREAM_CONF="/etc/nginx/stream-enabled/stream.conf"; HTTP80_CONF="/etc/nginx/conf.d/80.conf"
 WORKSPACES_DIR=""; INSTALL_DIR=""; MODE="update"; UPDATE_IMAGE=""; ASSUME_YES="no"
 
+ask_value() {
+  local var_name="$1" prompt="$2"
+  local cur="${!var_name:-}"
+  [[ -n "$cur" ]] && return 0
+
+  if [[ "$ASSUME_YES" == "yes" ]]; then
+    echo "[error] Missing required argument: $var_name" >&2
+    exit 1
+  fi
+
+  local value=""
+  while [[ -z "$value" ]]; do
+    read -r -p "$prompt: " value
+  done
+  printf -v "$var_name" '%s' "$value"
+}
+
+normalize_path_prefix() {
+  [[ "$PATH_PREFIX" =~ ^/.+/$ ]] && return 0
+
+  local generated="/$(rand_name $((RANDOM % 5 + 8)))/"
+  if [[ "$ASSUME_YES" == "yes" ]]; then
+    PATH_PREFIX="$generated"
+    echo "[warn] Invalid or missing --path; generated random path: $PATH_PREFIX"
+    return 0
+  fi
+
+  echo "[warn] Path must match /.../."
+  read -r -p "Enter path in format /.../ (leave empty for random $generated): " entered
+  if [[ -n "$entered" && "$entered" =~ ^/.+/$ ]]; then
+    PATH_PREFIX="$entered"
+  else
+    [[ -n "$entered" ]] && echo "[warn] Invalid entered path; using random: $generated"
+    PATH_PREFIX="$generated"
+  fi
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --domain) DOMAIN="$2"; shift 2;;
@@ -31,12 +68,23 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-[[ -n "$DOMAIN" && -n "$PATH_PREFIX" && -n "$EMAIL" && -n "$GITHUB_USER" ]] || { echo "Required: --domain --path --email --github-user"; exit 1; }
-[[ "$PATH_PREFIX" =~ ^/.+/$ ]] || { echo "--path must start and end with /"; exit 1; }
+if [[ -z "$DOMAIN" || -z "$EMAIL" || -z "$GITHUB_USER" ]]; then
+  echo "[info] Starting interactive input for missing required flags"
+fi
+ask_value DOMAIN "domain"
+ask_value EMAIL "email"
+ask_value GITHUB_USER "github-user"
+normalize_path_prefix
 [[ "$MODE" =~ ^(keep|update|add)$ ]] || { echo "--mode must be keep|update|add"; exit 1; }
 
-if [[ -z "$INSTALL_DIR" ]]; then INSTALL_DIR="/opt/$(rand_name 10)"; echo "[info] Random install dir: $INSTALL_DIR"; fi
-if [[ -z "$WORKSPACES_DIR" ]]; then WORKSPACES_DIR="/opt/$(rand_name 10)"; echo "[info] Random workspaces dir: $WORKSPACES_DIR"; fi
+if [[ -z "$INSTALL_DIR" ]]; then
+  INSTALL_DIR="/opt/MCPSRV"
+  echo "[info] Default install dir: $INSTALL_DIR"
+fi
+if [[ -z "$WORKSPACES_DIR" ]]; then
+  WORKSPACES_DIR="/opt/MCPSRV/workspaces"
+  echo "[info] Default workspaces dir: $WORKSPACES_DIR"
+fi
 
 ensure_nginx
 ensure_docker
@@ -47,7 +95,9 @@ mkdir -p "$INSTALL_DIR" "$WORKSPACES_DIR" /var/www/letsencrypt
 chown root:mcp "$INSTALL_DIR" && chmod 750 "$INSTALL_DIR"
 chown mcp:mcp "$WORKSPACES_DIR"
 
-if [[ ! -f "$STREAM_CONF" ]]; then mkdir -p "$(dirname "$STREAM_CONF")"; cat > "$STREAM_CONF" <<'SC'
+if [[ ! -f "$STREAM_CONF" ]]; then
+  mkdir -p "$(dirname "$STREAM_CONF")"
+  cat > "$STREAM_CONF" <<'SC'
 map $ssl_preread_server_name $sni_name {
     default default_backend;
 }
@@ -97,7 +147,8 @@ if [[ ! -f "$DOMAIN_CONF" ]]; then
   mv "$tmp" "$DOMAIN_CONF"
 else
   backup_file "$DOMAIN_CONF"
-  if [[ "$MODE" == "keep" ]]; then :
+  if [[ "$MODE" == "keep" ]]; then
+    :
   elif grep -q "location $PATH_PREFIX" "$DOMAIN_CONF"; then
     [[ "$MODE" == "add" ]] || perl -0777 -i -pe "s#location \Q$PATH_PREFIX\E \{.*?\n\}#$LOCATION_BLOCK#s" "$DOMAIN_CONF"
   else
@@ -148,6 +199,8 @@ cat > "$REPORT" <<R
 - Stream route: $DOMAIN -> $UPSTREAM_NAME -> $HTTPS_PORT
 - Cert mode: $CERT_KIND
 - Backend: 127.0.0.1:$BACKEND_PORT
+- Install dir: $INSTALL_DIR
+- Workspaces dir: $WORKSPACES_DIR
 - Service: $(systemctl is-active mcp-runner || true)
 - Cleanup timer: $(systemctl is-active mcp-workspace-cleanup.timer || true)
 

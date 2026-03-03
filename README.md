@@ -12,7 +12,7 @@ sudo ./install.sh \
   --github-user your-org-or-user
 ```
 
-> If `--install-dir` and `--workspaces-dir` are omitted, installer generates random `/opt/<8-12 chars>` paths and prints them.
+> If `--install-dir` and `--workspaces-dir` are omitted, installer uses default `/opt/MCPSRV` and `/opt/MCPSRV/workspaces`, and prints this in logs.
 
 ## Re-run / update
 
@@ -62,46 +62,31 @@ export MCP_RUNNER_TOKEN='<token>'
 ```text
 Старт
  ├─ Переданы обязательные флаги?
- │   ├─ Нет → ошибка и выход
+ │   ├─ Нет → начать задавать вопросы по недостающим флагам (domain/email/github-user)
  │   └─ Да
  ├─ path в формате /.../ ?
- │   ├─ Нет → ошибка и выход
+ │   ├─ Нет → предложить ввести корректный путь; если пусто/некорректно — сгенерировать random /<8-12>/
  │   └─ Да
  ├─ install_dir/workspaces_dir заданы?
- │   ├─ Нет → генерируются случайные /opt/<8-12 символов> и печатаются в лог
- │   └─ Да → используются значения оператора
+ │   ├─ Нет → использовать дефолт /opt/MCPSRV и /opt/MCPSRV/workspaces + вывести в лог
+ │   └─ Да → использовать значения оператора
  ├─ nginx установлен?
  │   ├─ Нет → установка nginx
  │   └─ Да
  ├─ docker установлен?
  │   ├─ Нет → установка docker.io
  │   └─ Да
- ├─ Пользователь mcp существует?
- │   ├─ Нет → создать системного mcp (без shell)
- │   └─ Да
  ├─ Домен уже есть в stream map?
- │   ├─ Да → оставить текущий upstream/port без изменений
+ │   ├─ Да → оставить текущий upstream/port
  │   └─ Нет → выбрать свободный порт из [7443..13443], добавить map+upstream
- ├─ В 80.conf есть ACME location до redirect?
- │   ├─ Нет → сделать backup и вставить snippet
- │   └─ Да
- ├─ LE сертификат уже существует?
- │   ├─ Да → использовать его
- │   └─ Нет → certbot webroot
- │       ├─ Успех → использовать LE
- │       └─ Ошибка → self-signed fallback + warning в report
- ├─ /etc/nginx/sites-available/<domain>.conf существует?
- │   ├─ Нет → создать из шаблона + location для PATH
- │   └─ Да
- │       ├─ mode=keep → оставить существующий MCP location
- │       ├─ mode=update → обновить существующий/добавить отсутствующий
- │       └─ mode=add → добавить новый MCP location
+ ├─ LE сертификат существует?
+ │   ├─ Да → использовать LE
+ │   └─ Нет → certbot webroot; при ошибке self-signed fallback
+ ├─ Vhost уже существует?
+ │   ├─ Нет → создать из шаблона
+ │   └─ Да → обработать location по mode=keep|update|add
  ├─ token.txt существует?
- │   ├─ Нет → сгенерировать openssl rand -hex 32
- │   └─ Да → переиспользовать
- ├─ update-image?
- │   ├─ yes (по умолчанию) → docker build base image
- │   └─ no → пропустить
- └─ Установить/включить systemd сервисы, nginx -t, reload nginx,
-    вывести MCP URL, health URL, токен, TOML и сохранить install-report.md
+ │   ├─ Нет → сгенерировать
+ │   └─ Да → использовать существующий
+ └─ Установить/перезапустить systemd, проверить nginx -t, вывести URL/token/TOML и записать report
 ```
