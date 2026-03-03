@@ -285,11 +285,34 @@ else
   elif grep -q "location $PATH_PREFIX" "$DOMAIN_CONF"; then
     [[ "$MODE" == "add" ]] || perl -0777 -i -pe "s#location \Q$PATH_PREFIX\E \{.*?\n\}#$LOCATION_BLOCK#s" "$DOMAIN_CONF"
   else
-    sed -i "/proxy_intercept_errors on;/a\
-\n$LOCATION_BLOCK\n" "$DOMAIN_CONF"
+    python3 - "$DOMAIN_CONF" "$LOCATION_BLOCK" <<'PYLOC'
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+location_block = sys.argv[2]
+text = path.read_text()
+needle = "proxy_intercept_errors on;"
+if needle in text:
+    text = text.replace(needle, needle + "\n\n" + location_block + "\n", 1)
+else:
+    text = text.rstrip() + "\n\n" + location_block + "\n"
+path.write_text(text)
+PYLOC
   fi
-  sed -i "s#ssl_certificate .*#ssl_certificate $CERT_FULLCHAIN;#" "$DOMAIN_CONF"
-  sed -i "s#ssl_certificate_key .*#ssl_certificate_key $CERT_PRIVKEY;#" "$DOMAIN_CONF"
+  python3 - "$DOMAIN_CONF" "$CERT_FULLCHAIN" "$CERT_PRIVKEY" <<'PYCERT'
+import re
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+fullchain = sys.argv[2]
+privkey = sys.argv[3]
+text = path.read_text()
+text = re.sub(r"^\s*ssl_certificate\s+.*;$", f"    ssl_certificate {fullchain};", text, flags=re.M)
+text = re.sub(r"^\s*ssl_certificate_key\s+.*;$", f"    ssl_certificate_key {privkey};", text, flags=re.M)
+path.write_text(text)
+PYCERT
 fi
 ln -sf "$DOMAIN_CONF" "/etc/nginx/sites-enabled/$DOMAIN.conf"
 
