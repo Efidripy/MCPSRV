@@ -16,7 +16,7 @@ sudo ./install.sh \
 
 ## Install via sudo + curl/wget
 
-### 1) Один файл `install.sh` (рекомендуется для копипаста)
+### 1) Без флагов (интерактивный режим)
 
 ```bash
 sudo bash -c 'curl -fsSL https://raw.githubusercontent.com/Efidripy/MCPSRV/main/install.sh -o /tmp/mcp-install.sh && chmod +x /tmp/mcp-install.sh && /tmp/mcp-install.sh'
@@ -26,9 +26,9 @@ sudo bash -c 'curl -fsSL https://raw.githubusercontent.com/Efidripy/MCPSRV/main/
 sudo bash -c 'wget -qO /tmp/mcp-install.sh https://raw.githubusercontent.com/Efidripy/MCPSRV/main/install.sh && chmod +x /tmp/mcp-install.sh && /tmp/mcp-install.sh'
 ```
 
-> Этот режим теперь поддерживается напрямую: `install.sh` сам подтянет полный репозиторий (`lib/`, `templates/`, `app/`) и перезапустится.
+> В этом режиме инсталлятор задаст вопросы по обязательным параметрам (`domain`, `email`, `github-user`) и сгенерирует случайный `path`, если вы его не введете в формате `/.../`.
 
-### 2) С флагами (неинтерактивно)
+### 2) С флагами (полностью неинтерактивно)
 
 ```bash
 sudo bash -c 'curl -fsSL https://raw.githubusercontent.com/Efidripy/MCPSRV/main/install.sh -o /tmp/mcp-install.sh && chmod +x /tmp/mcp-install.sh && /tmp/mcp-install.sh --domain example.com --path /abc123xyz/ --email admin@example.com --github-user your-org-or-user --assume-yes'
@@ -37,29 +37,6 @@ sudo bash -c 'curl -fsSL https://raw.githubusercontent.com/Efidripy/MCPSRV/main/
 ```bash
 sudo bash -c 'wget -qO /tmp/mcp-install.sh https://raw.githubusercontent.com/Efidripy/MCPSRV/main/install.sh && chmod +x /tmp/mcp-install.sh && /tmp/mcp-install.sh --domain example.com --path /abc123xyz/ --email admin@example.com --github-user your-org-or-user --assume-yes'
 ```
-
-### 3) Альтернатива: запуск из tarball (полный репозиторий сразу)
-
-```bash
-sudo bash -c 'set -e; tmpdir=$(mktemp -d /tmp/mcpsrv-XXXXXX); curl -fsSL https://codeload.github.com/Efidripy/MCPSRV/tar.gz/refs/heads/main -o "$tmpdir/repo.tar.gz"; tar -xzf "$tmpdir/repo.tar.gz" -C "$tmpdir"; "$tmpdir"/MCPSRV-main/install.sh'
-```
-
-## Troubleshooting
-
-- Если у вас `80.conf` лежит в `/etc/nginx/sites-available/`, это теперь дефолтный путь для инсталлятора.
-- Если путь другой, передайте явно:
-
-```bash
---http80-conf /your/path/to/80.conf --stream-conf /your/path/to/stream.conf
-```
-
-- Инсталлятор автоматически ищет stream конфиг в:
-  - `/etc/nginx/stream/stream.conf`
-  - `/etc/nginx/stream-enabled/stream.conf`
-- Инсталлятор автоматически ищет HTTP:80 конфиг в:
-  - `/etc/nginx/sites-available/80.conf`
-  - `/etc/nginx/conf.d/80.conf`
-- Если HTTP:80 конфиг отсутствует, создается базовый `server { listen 80 ... }` и в него добавляется ACME location.
 
 ## Re-run / update
 
