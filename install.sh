@@ -2,32 +2,6 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
-
-# Bootstrap mode: if only install.sh is downloaded, fetch full repository archive and re-exec.
-if [[ ! -f "$ROOT_DIR/lib/util.sh" ]]; then
-  echo "[info] Local lib/ not found next to install.sh. Bootstrapping full repository..."
-  BOOTSTRAP_URL="${MCPSRV_REPO_TARBALL_URL:-https://codeload.github.com/Efidripy/MCPSRV/tar.gz/refs/heads/main}"
-  BOOTSTRAP_DIR="$(mktemp -d /tmp/mcpsrv-bootstrap-XXXXXX)"
-
-  if command -v curl >/dev/null 2>&1; then
-    curl -fsSL "$BOOTSTRAP_URL" -o "$BOOTSTRAP_DIR/repo.tar.gz"
-  elif command -v wget >/dev/null 2>&1; then
-    wget -qO "$BOOTSTRAP_DIR/repo.tar.gz" "$BOOTSTRAP_URL"
-  else
-    echo "[error] Neither curl nor wget is available for bootstrap download." >&2
-    exit 1
-  fi
-
-  tar -xzf "$BOOTSTRAP_DIR/repo.tar.gz" -C "$BOOTSTRAP_DIR"
-  BOOTSTRAP_ROOT="$(find "$BOOTSTRAP_DIR" -mindepth 1 -maxdepth 1 -type d | head -n1)"
-  [[ -n "$BOOTSTRAP_ROOT" && -f "$BOOTSTRAP_ROOT/install.sh" ]] || {
-    echo "[error] Failed to locate install.sh in downloaded repository archive." >&2
-    exit 1
-  }
-
-  chmod +x "$BOOTSTRAP_ROOT/install.sh"
-  exec "$BOOTSTRAP_ROOT/install.sh" "$@"
-fi
 source "$ROOT_DIR/lib/util.sh"
 source "$ROOT_DIR/lib/docker.sh"
 source "$ROOT_DIR/lib/systemd.sh"
