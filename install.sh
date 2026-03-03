@@ -2,47 +2,6 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
-
-# Bootstrap mode: if only install.sh is downloaded, fetch full repository archive and re-exec.
-if [[ ! -f "$ROOT_DIR/lib/util.sh" ]]; then
-  echo "[info] Local lib/ not found next to install.sh. Bootstrapping full repository..."
-  BOOTSTRAP_URL="${MCPSRV_REPO_TARBALL_URL:-https://codeload.github.com/Efidripy/MCPSRV/tar.gz/refs/heads/main}"
-  BOOTSTRAP_DIR="$(mktemp -d /tmp/mcpsrv-bootstrap-XXXXXX)"
-  BOOTSTRAP_ARCHIVE="$BOOTSTRAP_DIR/repo.tar.gz"
-
-  download_bootstrap() {
-    local url="$1"
-    if command -v curl >/dev/null 2>&1; then
-      curl --retry 3 --retry-delay 1 -fsSL "$url" -o "$BOOTSTRAP_ARCHIVE"
-    elif command -v wget >/dev/null 2>&1; then
-      wget -qO "$BOOTSTRAP_ARCHIVE" "$url"
-    else
-      echo "[error] Neither curl nor wget is available for bootstrap download." >&2
-      return 1
-    fi
-  }
-
-  if ! download_bootstrap "$BOOTSTRAP_URL"; then
-    echo "[error] Failed to download bootstrap archive: $BOOTSTRAP_URL" >&2
-    exit 1
-  fi
-
-  if ! tar -xzf "$BOOTSTRAP_ARCHIVE" -C "$BOOTSTRAP_DIR"; then
-    echo "[error] Failed to extract bootstrap archive (not a valid tar.gz?)." >&2
-    exit 1
-  fi
-
-  BOOTSTRAP_ROOT="$(find "$BOOTSTRAP_DIR" -mindepth 1 -maxdepth 1 -type d | head -n1)"
-  [[ -n "$BOOTSTRAP_ROOT" && -f "$BOOTSTRAP_ROOT/install.sh" && -f "$BOOTSTRAP_ROOT/lib/util.sh" ]] || {
-    echo "[error] Downloaded archive does not contain expected repository structure." >&2
-    exit 1
-  }
-
-  echo "[info] Re-running installer from: $BOOTSTRAP_ROOT"
-  chmod +x "$BOOTSTRAP_ROOT/install.sh"
-  exec "$BOOTSTRAP_ROOT/install.sh" "$@"
-fi
-
 source "$ROOT_DIR/lib/util.sh"
 source "$ROOT_DIR/lib/docker.sh"
 source "$ROOT_DIR/lib/systemd.sh"
@@ -51,9 +10,8 @@ source "$ROOT_DIR/lib/stream.sh"
 source "$ROOT_DIR/lib/letsencrypt.sh"
 
 DOMAIN=""; PATH_PREFIX=""; EMAIL=""; GITHUB_USER=""
-BACKEND_PORT="21582"; STREAM_CONF="/etc/nginx/stream/stream.conf"; HTTP80_CONF="/etc/nginx/sites-available/80.conf"
+BACKEND_PORT="21582"; STREAM_CONF="/etc/nginx/stream-enabled/stream.conf"; HTTP80_CONF="/etc/nginx/conf.d/80.conf"
 WORKSPACES_DIR=""; INSTALL_DIR=""; MODE="update"; UPDATE_IMAGE=""; ASSUME_YES="no"
-STREAM_CONF_SET="no"; HTTP80_CONF_SET="no"
 
 ask_value() {
   local var_name="$1" prompt="$2"
@@ -92,75 +50,6 @@ normalize_path_prefix() {
   fi
 }
 
-resolve_stream_conf() {
-  [[ "$STREAM_CONF_SET" == "yes" ]] && return 0
-  local candidates=(
-    "/etc/nginx/stream/stream.conf"
-    "/etc/nginx/stream-enabled/stream.conf"
-  )
-  for c in "${candidates[@]}"; do
-    if [[ -f "$c" ]]; then
-      STREAM_CONF="$c"
-      return 0
-    fi
-  done
-  STREAM_CONF="${candidates[0]}"
-}
-
-resolve_http80_conf() {
-  [[ "$HTTP80_CONF_SET" == "yes" ]] && return 0
-  local candidates=(
-    "/etc/nginx/sites-available/80.conf"
-    "/etc/nginx/conf.d/80.conf"
-  )
-  for c in "${candidates[@]}"; do
-    if [[ -f "$c" ]]; then
-      HTTP80_CONF="$c"
-      return 0
-    fi
-  done
-  HTTP80_CONF="${candidates[0]}"
-}
-
-ensure_http80_conf_exists() {
-  [[ -f "$HTTP80_CONF" ]] && return 0
-  mkdir -p "$(dirname "$HTTP80_CONF")"
-  cat > "$HTTP80_CONF" <<'HC'
-server {
-    listen 80 default_server;
-    listen [::]:80 default_server;
-    server_name _;
-
-    return 301 https://$host$request_uri;
-}
-HC
-}
-
-insert_acme_location() {
-  grep -q '/.well-known/acme-challenge/' "$HTTP80_CONF" && return 0
-
-  local snippet tmp snip_oneline
-  snippet="$(cat "$ROOT_DIR/templates/nginx_http80_acme_snippet.conf")"
-  snip_oneline="$(printf '%s' "$snippet" | sed ':a;N;$!ba;s/\n/\\n/g')"
-  tmp="$(mktemp)"
-
-  awk -v snip="$snip_oneline" '
-    /return 301 https/ && !done {
-      gsub(/\\n/,"\n",snip)
-      print snip
-      done=1
-    }
-    {print}
-    END {
-      if (!done) {
-        gsub(/\\n/,"\n",snip)
-        print snip
-      }
-    }
-  ' "$HTTP80_CONF" > "$tmp"
-  mv "$tmp" "$HTTP80_CONF"
-}
-
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --domain) DOMAIN="$2"; shift 2;;
@@ -168,8 +57,8 @@ while [[ $# -gt 0 ]]; do
     --email) EMAIL="$2"; shift 2;;
     --github-user) GITHUB_USER="$2"; shift 2;;
     --backend-port) BACKEND_PORT="$2"; shift 2;;
-    --stream-conf) STREAM_CONF="$2"; STREAM_CONF_SET="yes"; shift 2;;
-    --http80-conf) HTTP80_CONF="$2"; HTTP80_CONF_SET="yes"; shift 2;;
+    --stream-conf) STREAM_CONF="$2"; shift 2;;
+    --http80-conf) HTTP80_CONF="$2"; shift 2;;
     --workspaces-dir) WORKSPACES_DIR="$2"; shift 2;;
     --install-dir) INSTALL_DIR="$2"; shift 2;;
     --mode) MODE="$2"; shift 2;;
@@ -199,9 +88,6 @@ fi
 
 ensure_nginx
 ensure_docker
-resolve_stream_conf
-resolve_http80_conf
-ensure_http80_conf_exists
 id -u mcp >/dev/null 2>&1 || useradd --system --home /nonexistent --shell /usr/sbin/nologin mcp
 usermod -aG docker mcp || true
 
@@ -235,7 +121,13 @@ else
 fi
 
 backup_file "$HTTP80_CONF"
-insert_acme_location
+if ! grep -q '/.well-known/acme-challenge/' "$HTTP80_CONF"; then
+  awk -v snippet="$(sed 's/[&/]/\\&/g' "$ROOT_DIR/templates/nginx_http80_acme_snippet.conf" | tr '\n' '\\n')" '
+    /return 301 https/ && !done {gsub(/\\n/,"\n",snippet); print snippet; done=1}
+    {print}
+  ' "$HTTP80_CONF" > "$HTTP80_CONF.new"
+  mv "$HTTP80_CONF.new" "$HTTP80_CONF"
+fi
 
 CERT_KIND="$(issue_cert_or_fallback "$DOMAIN" "$EMAIL")"
 if [[ "$CERT_KIND" == "le" ]]; then
@@ -307,8 +199,6 @@ cat > "$REPORT" <<R
 - Stream route: $DOMAIN -> $UPSTREAM_NAME -> $HTTPS_PORT
 - Cert mode: $CERT_KIND
 - Backend: 127.0.0.1:$BACKEND_PORT
-- Stream conf: $STREAM_CONF
-- HTTP:80 conf: $HTTP80_CONF
 - Install dir: $INSTALL_DIR
 - Workspaces dir: $WORKSPACES_DIR
 - Service: $(systemctl is-active mcp-runner || true)
@@ -336,8 +226,6 @@ chmod 640 "$REPORT" && chown root:mcp "$REPORT"
 nginx -t
 systemctl reload nginx
 
-echo "Stream conf: $STREAM_CONF"
-echo "HTTP:80 conf: $HTTP80_CONF"
 echo "MCP URL: https://$DOMAIN${PATH_PREFIX}mcp"
 echo "Health URL: https://$DOMAIN${PATH_PREFIX}health"
 echo "Token: $TOKEN"
