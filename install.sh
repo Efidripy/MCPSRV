@@ -309,6 +309,7 @@ if ! python3 -m venv "$INSTALL_DIR/.venv"; then
   apt-get install -y python3-venv
   python3 -m venv "$INSTALL_DIR/.venv"
 fi
+"$INSTALL_DIR/.venv/bin/pip" install --upgrade pip setuptools wheel >/dev/null
 "$INSTALL_DIR/.venv/bin/pip" install -r "$INSTALL_DIR/app/requirements.txt" >/dev/null
 
 svc_tmp="$(mktemp)"
