@@ -270,11 +270,15 @@ else
 fi
 
 DOMAIN_CONF="/etc/nginx/sites-available/$DOMAIN.conf"
-LOCATION_BLOCK="$(python3 - <<'PYLOCBLK'
+LOCATION_BLOCK="$(python3 - "$ROOT_DIR/templates/nginx_location.conf.tmpl" "$PATH_PREFIX" "$BACKEND_PORT" <<'PYLOCBLK'
 import pathlib
-text = pathlib.Path("$ROOT_DIR/templates/nginx_location.conf.tmpl").read_text()
-text = text.replace("{{PATH}}", "$PATH_PREFIX")
-text = text.replace("{{BACKEND_PORT}}", "$BACKEND_PORT")
+import sys
+
+tmpl = pathlib.Path(sys.argv[1]).read_text()
+path_prefix = sys.argv[2]
+backend_port = sys.argv[3]
+text = tmpl.replace("{{PATH}}", path_prefix)
+text = text.replace("{{BACKEND_PORT}}", backend_port)
 print(text, end="")
 PYLOCBLK
 )"
