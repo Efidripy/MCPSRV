@@ -139,50 +139,24 @@ HC
 insert_acme_location() {
   grep -q '/.well-known/acme-challenge/' "$HTTP80_CONF" && return 0
 
-  local snippet tmp snip_oneline
-  snippet="$(cat "$ROOT_DIR/templates/nginx_http80_acme_snippet.conf")"
-  snip_oneline="$(printf '%s' "$snippet" | sed ':a;N;$!ba;s/\n/\\n/g')"
-  tmp="$(mktemp)"
+  python3 - "$HTTP80_CONF" "$ROOT_DIR/templates/nginx_http80_acme_snippet.conf" <<'PYACME'
+from pathlib import Path
+import sys
 
-  awk -v snip="$snip_oneline" '
-    /return 301 https/ && !done {
-      gsub(/\\n/,"\n",snip)
-      print snip
-      done=1
-    }
-    {print}
-    END {
-      if (!done) {
-        gsub(/\\n/,"\n",snip)
-        print snip
-      }
-    }
-  ' "$HTTP80_CONF" > "$tmp"
-  mv "$tmp" "$HTTP80_CONF"
-}
+conf_path = Path(sys.argv[1])
+snippet_path = Path(sys.argv[2])
+text = conf_path.read_text()
+snippet = snippet_path.read_text().rstrip() + "\n"
+needle = "return 301 https"
 
+if needle in text:
+    idx = text.find(needle)
+    text = text[:idx] + snippet + text[idx:]
+else:
+    text = text.rstrip() + "\n\n" + snippet
 
-ensure_system_tools() {
-  local missing=()
-  command -v python3 >/dev/null 2>&1 || missing+=(python3)
-  command -v pip3 >/dev/null 2>&1 || missing+=(python3-pip)
-  command -v git >/dev/null 2>&1 || missing+=(git)
-  command -v openssl >/dev/null 2>&1 || missing+=(openssl)
-  command -v certbot >/dev/null 2>&1 || missing+=(certbot)
-  command -v tar >/dev/null 2>&1 || missing+=(tar)
-  command -v curl >/dev/null 2>&1 || command -v wget >/dev/null 2>&1 || missing+=(curl)
-
-  if (( ${#missing[@]} > 0 )); then
-    echo "[info] Installing missing system packages: ${missing[*]}"
-    apt-get update
-    apt-get install -y "${missing[@]}"
-  fi
-
-  if ! python3 -m venv --help >/dev/null 2>&1; then
-    echo "[info] Installing python3-venv (required for virtualenv setup)"
-    apt-get update
-    apt-get install -y python3-venv
-  fi
+conf_path.write_text(text)
+PYACME
 }
 
 while [[ $# -gt 0 ]]; do
@@ -272,7 +246,14 @@ else
 fi
 
 DOMAIN_CONF="/etc/nginx/sites-available/$DOMAIN.conf"
-LOCATION_BLOCK="$(sed "s|{{PATH}}|$PATH_PREFIX|g; s|{{BACKEND_PORT}}|$BACKEND_PORT|g" "$ROOT_DIR/templates/nginx_location.conf.tmpl")"
+LOCATION_BLOCK="$(python3 - <<'PYLOCBLK'
+import pathlib
+text = pathlib.Path("$ROOT_DIR/templates/nginx_location.conf.tmpl").read_text()
+text = text.replace("{{PATH}}", "$PATH_PREFIX")
+text = text.replace("{{BACKEND_PORT}}", "$BACKEND_PORT")
+print(text, end="")
+PYLOCBLK
+)"
 if [[ ! -f "$DOMAIN_CONF" ]]; then
   tmp="$(mktemp)"
   render_template "$ROOT_DIR/templates/nginx_domain.conf.tmpl" "$tmp" \
