@@ -1,0 +1,7 @@
+# codex-project.yaml
+project:
+  name: mcp-runner-installer
+  description: >
+    Idempotent installer repo to deploy a single shared remote MCP server (FastMCP Streamable HTTP)
+    behind existing nginx (stream SNI routing + per-domain HTTPS port) on Ubuntu 24.04.
+  target_os: ubuntu-24.04
