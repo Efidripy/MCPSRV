@@ -67,6 +67,8 @@ head -n 1 /tmp/mcp-install.sh
   - `/etc/nginx/sites-available/80.conf`
   - `/etc/nginx/conf.d/80.conf`
 - Если HTTP:80 конфиг отсутствует, создается базовый `server { listen 80 ... }` и в него добавляется ACME location.
+- Если на сервере нет `python3-venv` (ошибка про `ensurepip is not available`), инсталлятор теперь автоматически доустанавливает `python3-venv` и повторяет создание `.venv`.
+- Инсталлятор также автоматически доустанавливает системные зависимости при отсутствии: `python3`, `python3-pip`, `python3-venv`, `git`, `openssl`, `certbot`, `tar` и `curl` (если нет `curl/wget`).
 
 ## Re-run / update
 
