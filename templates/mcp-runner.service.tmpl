@@ -1,0 +1,19 @@
+[Unit]
+Description=MCP Runner (FastMCP Streamable HTTP)
+After=network.target docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=mcp
+Group=mcp
+WorkingDirectory={{INSTALL_DIR}}/app
+Environment="MCP_BEARER_TOKEN={{TOKEN}}"
+Environment="MCP_GITHUB_USER={{GITHUB_USER}}"
+Environment="MCP_WORKSPACES_DIR={{WORKSPACES_DIR}}"
+ExecStart={{INSTALL_DIR}}/.venv/bin/uvicorn server:app --host 127.0.0.1 --port {{BACKEND_PORT}}
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
