@@ -15,4 +15,4 @@ RUN set -eux; \
   fi; \
   rm -rf /var/lib/apt/lists/*
 
-RUN python3 -m pip install -U pip
+# NOTE: do not upgrade system pip in Ubuntu 24.04 image (PEP 668 / externally-managed-environment)

@@ -482,7 +482,37 @@ systemctl daemon-reload
 systemctl enable --now mcp-runner mcp-workspace-cleanup.timer
 
 if [[ -z "$UPDATE_IMAGE" ]]; then UPDATE_IMAGE="yes"; fi
-if [[ "$UPDATE_IMAGE" == "yes" ]]; then docker build -t mcp-runner-base:latest -f "$ROOT_DIR/templates/Dockerfile.base" "$ROOT_DIR"; fi
+if [[ "$UPDATE_IMAGE" == "yes" ]]; then
+  DOCKERFILE_PATH="$ROOT_DIR/templates/Dockerfile.base"
+  BUILD_DOCKERFILE="$DOCKERFILE_PATH"
+  BUILD_LOG="$(mktemp)"
+
+  if grep -Eq 'python3[[:space:]]+-m[[:space:]]+pip[[:space:]]+install[[:space:]]+-U[[:space:]]+pip' "$DOCKERFILE_PATH"; then
+    log_warn "Detected legacy Dockerfile pip self-upgrade line; building with sanitized temporary Dockerfile"
+    BUILD_DOCKERFILE="$(mktemp)"
+    grep -Ev 'python3[[:space:]]+-m[[:space:]]+pip[[:space:]]+install[[:space:]]+-U[[:space:]]+pip' "$DOCKERFILE_PATH" > "$BUILD_DOCKERFILE"
+  fi
+
+  set +e
+  docker build -t mcp-runner-base:latest -f "$BUILD_DOCKERFILE" "$ROOT_DIR" 2>&1 | tee "$BUILD_LOG"
+  BUILD_RC=${PIPESTATUS[0]}
+  set -e
+
+  if [[ $BUILD_RC -ne 0 ]] && grep -q 'externally-managed-environment' "$BUILD_LOG"; then
+    log_warn "Docker build failed with PEP 668; retrying with forced sanitized Dockerfile"
+    FORCE_DOCKERFILE="$(mktemp)"
+    grep -Ev 'python3[[:space:]]+-m[[:space:]]+pip[[:space:]]+install[[:space:]]+-U[[:space:]]+pip' "$DOCKERFILE_PATH" > "$FORCE_DOCKERFILE"
+    docker build -t mcp-runner-base:latest -f "$FORCE_DOCKERFILE" "$ROOT_DIR"
+    rm -f "$FORCE_DOCKERFILE"
+  elif [[ $BUILD_RC -ne 0 ]]; then
+    rm -f "$BUILD_LOG"
+    [[ "$BUILD_DOCKERFILE" == "$DOCKERFILE_PATH" ]] || rm -f "$BUILD_DOCKERFILE"
+    exit $BUILD_RC
+  fi
+
+  rm -f "$BUILD_LOG"
+  [[ "$BUILD_DOCKERFILE" == "$DOCKERFILE_PATH" ]] || rm -f "$BUILD_DOCKERFILE"
+fi
 
 COD="[mcp_servers.runner]
 url = \"https://$DOMAIN${PATH_PREFIX}mcp\"
