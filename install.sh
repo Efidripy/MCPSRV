@@ -367,7 +367,7 @@ else
   CERT_PRIVKEY="/etc/ssl/localcerts/$DOMAIN.key"
 fi
 
-DOMAIN_CONF="/etc/nginx/sites-available/$DOMAIN.conf"
+DOMAIN_CONF="/etc/nginx/sites-available/$DOMAIN"
 LOCATION_BLOCK="$(python3 - "$ROOT_DIR/templates/nginx_location.conf.tmpl" "$PATH_PREFIX" "$BACKEND_PORT" <<'PYLOCBLK'
 import pathlib
 import sys
@@ -421,7 +421,7 @@ text = re.sub(r"^\s*ssl_certificate_key\s+.*;$", f"    ssl_certificate_key {priv
 path.write_text(text)
 PYCERT
 fi
-ln -sf "$DOMAIN_CONF" "/etc/nginx/sites-enabled/$DOMAIN.conf"
+ln -sf "$DOMAIN_CONF" "/etc/nginx/sites-enabled/$DOMAIN"
 
 TOKEN_FILE="$INSTALL_DIR/token.txt"
 if [[ ! -f "$TOKEN_FILE" ]]; then openssl rand -hex 32 > "$TOKEN_FILE"; fi
