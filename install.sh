@@ -257,7 +257,13 @@ import re
 import sys
 from pathlib import Path
 
-text = Path(sys.argv[1]).read_text()
+raw = Path(sys.argv[1]).read_bytes()
+for enc in ("utf-8", "cp1251", "latin-1"):
+    try:
+        text = raw.decode(enc)
+        break
+    except UnicodeDecodeError:
+        continue
 domain = sys.argv[2]
 m = re.search(r"map\s+\$ssl_preread_server_name\s+\$sni_name\s*\{(.*?)\}", text, re.S)
 if not m:
@@ -278,7 +284,13 @@ import re
 import sys
 from pathlib import Path
 
-text = Path(sys.argv[1]).read_text()
+raw = Path(sys.argv[1]).read_bytes()
+for enc in ("utf-8", "cp1251", "latin-1"):
+    try:
+        text = raw.decode(enc)
+        break
+    except UnicodeDecodeError:
+        continue
 upstream = sys.argv[2]
 m = re.search(r"(^|\n)\s*upstream\s+" + re.escape(upstream) + r"\s*\{(.*?)\}", text, re.S)
 if not m:
@@ -304,7 +316,13 @@ conf = Path(sys.argv[1])
 domain = sys.argv[2]
 upstream = sys.argv[3]
 port = sys.argv[4]
-text = conf.read_text()
+raw = conf.read_bytes()
+for enc in ("utf-8", "cp1251", "latin-1"):
+    try:
+        text = raw.decode(enc)
+        break
+    except UnicodeDecodeError:
+        continue
 
 mm = re.search(r"map\s+\$ssl_preread_server_name\s+\$sni_name\s*\{(.*?)\}", text, re.S)
 if mm:
