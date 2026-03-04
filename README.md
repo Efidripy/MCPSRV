@@ -70,6 +70,7 @@ head -n 1 /tmp/mcp-install.sh
 - Если на сервере нет `python3-venv` (ошибка про `ensurepip is not available`), инсталлятор теперь автоматически доустанавливает `python3-venv` и повторяет создание `.venv`.
 - Если `pip` сообщает конфликт версий между `fastapi`/`fastmcp`, используйте обновлённые зависимости из репозитория (`fastmcp` + `uvicorn`, без жёсткого pin на `fastapi`) и перезапустите установщик.
 - Инсталлятор дополнительно сам удаляет legacy-pin `fastapi==0.115.0` из `requirements.txt` (если встретит) и повторяет установку зависимостей автоматически.
+- Если сборка Docker-образа падает с `externally-managed-environment` (PEP 668), убедитесь, что используется актуальный `templates/Dockerfile.base` из репозитория: в нём убран шаг `python3 -m pip install -U pip`, несовместимый с Ubuntu 24.04 system python.
 - При повторном запуске инсталлятор теперь полностью обновляет `INSTALL_DIR/app` из текущего репозитория (чтобы не оставались старые `requirements.txt`/код).
 - Инсталлятор также автоматически доустанавливает системные зависимости при отсутствии: `python3`, `python3-pip`, `python3-venv`, `git`, `openssl`, `certbot`, `tar` и `curl` (если нет `curl/wget`).
 

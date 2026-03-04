@@ -15,3 +15,6 @@ RUN set -eux; \
   fi; \
   rm -rf /var/lib/apt/lists/*
 
+# NOTE:
+# Do not run `python3 -m pip install -U pip` in Ubuntu 24.04 base image.
+# PEP 668 marks system python as externally managed and breaks docker build.
