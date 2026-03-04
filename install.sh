@@ -366,7 +366,17 @@ systemctl daemon-reload
 systemctl enable --now mcp-runner mcp-workspace-cleanup.timer
 
 if [[ -z "$UPDATE_IMAGE" ]]; then UPDATE_IMAGE="yes"; fi
-if [[ "$UPDATE_IMAGE" == "yes" ]]; then docker build -t mcp-runner-base:latest -f "$ROOT_DIR/templates/Dockerfile.base" "$ROOT_DIR"; fi
+if [[ "$UPDATE_IMAGE" == "yes" ]]; then
+  DOCKERFILE_PATH="$ROOT_DIR/templates/Dockerfile.base"
+  BUILD_DOCKERFILE="$DOCKERFILE_PATH"
+  if grep -q 'python3 -m pip install -U pip' "$DOCKERFILE_PATH"; then
+    echo "[warn] Detected legacy Dockerfile pip self-upgrade line; building with sanitized temporary Dockerfile"
+    BUILD_DOCKERFILE="$(mktemp)"
+    grep -v 'python3 -m pip install -U pip' "$DOCKERFILE_PATH" > "$BUILD_DOCKERFILE"
+  fi
+  docker build -t mcp-runner-base:latest -f "$BUILD_DOCKERFILE" "$ROOT_DIR"
+  [[ "$BUILD_DOCKERFILE" == "$DOCKERFILE_PATH" ]] || rm -f "$BUILD_DOCKERFILE"
+fi
 
 COD="[mcp_servers.runner]
 url = \"https://$DOMAIN${PATH_PREFIX}mcp\"
