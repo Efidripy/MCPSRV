@@ -1,3 +1,4 @@
+import hashlib
 import os
 import re
 import subprocess
@@ -76,7 +77,7 @@ def run_in_docker(
     WORKSPACES_DIR.mkdir(parents=True, exist_ok=True)
 
     safe_ref = "".join(c for c in ref if c.isalnum() or c in "-_./")
-    key = abs(hash(repo_url + safe_ref))
+    key = hashlib.sha256((repo_url + safe_ref).encode()).hexdigest()[:32]
     target = WORKSPACES_DIR / f"repo-{key}"
 
     if not (target / ".git").exists():
