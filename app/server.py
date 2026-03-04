@@ -76,6 +76,8 @@ def run_in_docker(
     WORKSPACES_DIR.mkdir(parents=True, exist_ok=True)
 
     safe_ref = "".join(c for c in ref if c.isalnum() or c in "-_./")
+    if not safe_ref:
+        raise HTTPException(status_code=400, detail="ref contains no valid characters after sanitization")
     key = abs(hash(repo_url + safe_ref))
     target = WORKSPACES_DIR / f"repo-{key}"
 
