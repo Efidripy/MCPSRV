@@ -245,7 +245,11 @@ backup_file "$STREAM_CONF"
 
 if grep -qE "^\s*${DOMAIN}\s+" "$STREAM_CONF"; then
   UPSTREAM_NAME="$(awk -v d="$DOMAIN" '$1==d{print $2}' "$STREAM_CONF" | tr -d ';' | head -n1)"
-  HTTPS_PORT="$(awk -v u="$UPSTREAM_NAME" '$1=="upstream"&&$2==u{getline; gsub(/[^0-9]/, "", $0); print $0}' "$STREAM_CONF" | head -n1)"
+  HTTPS_PORT="$(awk -v u="$UPSTREAM_NAME" '$1=="upstream"&&$2==u{getline; if (match($0, /:([0-9]+)/, m)) print m[1]}' "$STREAM_CONF" | head -n1)"
+  if [[ -z "$HTTPS_PORT" || ! "$HTTPS_PORT" =~ ^[0-9]+$ || "$HTTPS_PORT" -lt 1 || "$HTTPS_PORT" -gt 65535 ]]; then
+    log_error "Failed to parse valid HTTPS port for upstream '$UPSTREAM_NAME' from $STREAM_CONF"
+    exit 1
+  fi
 else
   HTTPS_PORT="$(choose_port "$STREAM_CONF")"
   UPSTREAM_NAME="mcp_${DOMAIN//./_}"
