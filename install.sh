@@ -51,7 +51,7 @@ source "$ROOT_DIR/lib/stream.sh"
 source "$ROOT_DIR/lib/letsencrypt.sh"
 
 DOMAIN=""; PATH_PREFIX=""; EMAIL=""; GITHUB_USER=""
-BACKEND_PORT="21582"; STREAM_CONF="/etc/nginx/stream/stream.conf"; HTTP80_CONF="/etc/nginx/sites-available/80.conf"
+BACKEND_PORT="38091"; STREAM_CONF="/etc/nginx/stream/stream.conf"; HTTP80_CONF="/etc/nginx/sites-available/80.conf"
 WORKSPACES_DIR=""; INSTALL_DIR=""; MODE="update"; UPDATE_IMAGE=""; ASSUME_YES="no"
 STREAM_CONF_SET="no"; HTTP80_CONF_SET="no"
 
