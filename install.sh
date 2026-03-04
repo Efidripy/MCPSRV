@@ -345,12 +345,16 @@ if ! python3 -m venv "$INSTALL_DIR/.venv"; then
   python3 -m venv "$INSTALL_DIR/.venv"
 fi
 "$INSTALL_DIR/.venv/bin/pip" install --upgrade pip setuptools wheel >/dev/null
+<<<<<<< codex/generate-mcp-runner-installer-repo-wkqvg2
 if ! "$INSTALL_DIR/.venv/bin/pip" install -r "$REQ_FILE" >/dev/null; then
   echo "[warn] Initial pip install failed; retrying after dependency self-heal"
   grep -v '^fastapi==0\.115\.0$' "$REQ_FILE" > "$REQ_FILE.tmp" || true
   mv "$REQ_FILE.tmp" "$REQ_FILE"
   "$INSTALL_DIR/.venv/bin/pip" install -r "$REQ_FILE" >/dev/null
 fi
+=======
+"$INSTALL_DIR/.venv/bin/pip" install -r "$INSTALL_DIR/app/requirements.txt" >/dev/null
+>>>>>>> main
 
 svc_tmp="$(mktemp)"
 render_template "$ROOT_DIR/templates/mcp-runner.service.tmpl" "$svc_tmp" \
