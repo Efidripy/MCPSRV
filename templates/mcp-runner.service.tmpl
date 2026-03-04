@@ -7,11 +7,12 @@ Requires=docker.service
 Type=simple
 User=mcp
 Group=mcp
-WorkingDirectory={{INSTALL_DIR}}/app
+WorkingDirectory={{INSTALL_DIR}}
 Environment="MCP_BEARER_TOKEN={{TOKEN}}"
 Environment="MCP_GITHUB_USER={{GITHUB_USER}}"
 Environment="MCP_WORKSPACES_DIR={{WORKSPACES_DIR}}"
-ExecStart={{INSTALL_DIR}}/.venv/bin/uvicorn server:app --host 127.0.0.1 --port {{BACKEND_PORT}}
+Environment="MCP_PORT={{BACKEND_PORT}}"
+ExecStart={{INSTALL_DIR}}/.venv/bin/uvicorn app.server:app --host 127.0.0.1 --port {{BACKEND_PORT}}
 Restart=always
 RestartSec=2
 

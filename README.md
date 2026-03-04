@@ -85,6 +85,21 @@ sudo ./install.sh \
   --update-image yes
 ```
 
+
+## Run server manually
+
+```bash
+export MCP_BEARER_TOKEN='<your-token>'
+export MCP_GITHUB_USER='<your-org-or-user>'
+export MCP_PORT=38091
+uvicorn app.server:app --host 127.0.0.1 --port 38091
+```
+
+- Bearer token auth is required for MCP requests (`Authorization: Bearer <token>`).
+- MCP endpoint: `/mcp`
+- Public endpoints without auth: `/health`, `/docs`, `/openapi.json`
+- Token source: `MCP_BEARER_TOKEN` env var, or fallback to `token.txt` file.
+
 ## Verify
 
 ```bash

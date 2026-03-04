@@ -5,11 +5,27 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from fastmcp import FastMCP
 
 WORKSPACES_DIR = Path(os.environ.get("MCP_WORKSPACES_DIR", "/opt/mcp-workspaces"))
 GITHUB_USER = os.environ.get("MCP_GITHUB_USER", "").strip()
-TOKEN = os.environ.get("MCP_BEARER_TOKEN", "").strip()
+PORT = int(os.getenv("MCP_PORT", "38091"))
+PUBLIC_PATHS = {"/health", "/docs", "/openapi.json"}
+
+
+def _load_token() -> str:
+    env_token = os.environ.get("MCP_BEARER_TOKEN", "").strip()
+    if env_token:
+        return env_token
+
+    token_file = Path(os.environ.get("MCP_TOKEN_FILE", "token.txt"))
+    if token_file.exists():
+        return token_file.read_text(encoding="utf-8").strip()
+    return ""
+
+
+TOKEN = _load_token()
 
 
 def require_bearer(request: Request):
@@ -49,8 +65,17 @@ app = FastAPI()
 
 @app.middleware("http")
 async def auth_mw(request: Request, call_next):
-    if request.url.path.startswith("/mcp"):
+    if request.url.path in PUBLIC_PATHS:
+        return await call_next(request)
+    if not request.url.path.startswith("/mcp"):
+        return await call_next(request)
+    try:
         require_bearer(request)
+    except HTTPException as e:
+        return JSONResponse(
+            status_code=e.status_code,
+            content={"detail": e.detail},
+        )
     return await call_next(request)
 
 
@@ -59,7 +84,7 @@ def health():
     return {"ok": True}
 
 
-app.mount("/mcp", mcp.streamable_http_app())
+app.mount("/mcp", mcp.http_app(transport="streamable-http"))
 
 
 @mcp.tool()
@@ -101,3 +126,9 @@ def run_in_docker(
 
     out = run(docker_cmd, timeout_s=timeout_s)
     return {"output": out, "repo_path": str(target), "image": image, "ref": safe_ref}
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run("app.server:app", host="127.0.0.1", port=PORT)
