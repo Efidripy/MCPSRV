@@ -5,7 +5,7 @@ ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # Bootstrap mode: if only install.sh is downloaded, fetch full repository archive and re-exec.
 if [[ ! -f "$ROOT_DIR/lib/util.sh" ]]; then
-  echo "[info] Local lib/ not found next to install.sh. Bootstrapping full repository..."
+  echo "▶ Bootstrapping full repository (lib/ not found next to install.sh)"
   BOOTSTRAP_URL="${MCPSRV_REPO_TARBALL_URL:-https://codeload.github.com/Efidripy/MCPSRV/tar.gz/refs/heads/main}"
   BOOTSTRAP_DIR="$(mktemp -d /tmp/mcpsrv-bootstrap-XXXXXX)"
   BOOTSTRAP_ARCHIVE="$BOOTSTRAP_DIR/repo.tar.gz"
@@ -61,7 +61,7 @@ ask_value() {
   [[ -n "$cur" ]] && return 0
 
   if [[ "$ASSUME_YES" == "yes" ]]; then
-    echo "[error] Missing required argument: $var_name" >&2
+    log_error "Missing required argument: $var_name"
     exit 1
   fi
 
@@ -78,16 +78,16 @@ normalize_path_prefix() {
   local generated="/$(rand_name $((RANDOM % 5 + 8)))/"
   if [[ "$ASSUME_YES" == "yes" ]]; then
     PATH_PREFIX="$generated"
-    echo "[warn] Invalid or missing --path; generated random path: $PATH_PREFIX"
+    log_warn "Invalid or missing --path; generated random path: $PATH_PREFIX"
     return 0
   fi
 
-  echo "[warn] Path must match /.../."
+  log_warn "Path must match /.../."
   read -r -p "Enter path in format /.../ (leave empty for random $generated): " entered
   if [[ -n "$entered" && "$entered" =~ ^/.+/$ ]]; then
     PATH_PREFIX="$entered"
   else
-    [[ -n "$entered" ]] && echo "[warn] Invalid entered path; using random: $generated"
+    [[ -n "$entered" ]] && log_warn "Invalid entered path; using random: $generated"
     PATH_PREFIX="$generated"
   fi
 }
@@ -171,13 +171,13 @@ ensure_system_tools() {
   command -v curl >/dev/null 2>&1 || command -v wget >/dev/null 2>&1 || missing+=(curl)
 
   if (( ${#missing[@]} > 0 )); then
-    echo "[info] Installing missing system packages: ${missing[*]}"
+    log_info "Installing missing system packages: ${missing[*]}"
     apt-get update
     apt-get install -y "${missing[@]}"
   fi
 
   if ! python3 -m venv --help >/dev/null 2>&1; then
-    echo "[info] Installing python3-venv (required for virtualenv setup)"
+    log_info "Installing python3-venv (required for virtualenv setup)"
     apt-get update
     apt-get install -y python3-venv
   fi
@@ -197,28 +197,29 @@ while [[ $# -gt 0 ]]; do
     --mode) MODE="$2"; shift 2;;
     --update-image) UPDATE_IMAGE="$2"; shift 2;;
     --assume-yes) ASSUME_YES="yes"; shift;;
-    *) echo "Unknown arg: $1"; exit 1;;
+    *) log_error "Unknown arg: $1"; exit 1;;
   esac
 done
 
 if [[ -z "$DOMAIN" || -z "$EMAIL" || -z "$GITHUB_USER" ]]; then
-  echo "[info] Starting interactive input for missing required flags"
+  log_step "Interactive setup for missing required arguments"
 fi
 ask_value DOMAIN "domain"
 ask_value EMAIL "email"
 ask_value GITHUB_USER "github-user"
 normalize_path_prefix
-[[ "$MODE" =~ ^(keep|update|add)$ ]] || { echo "--mode must be keep|update|add"; exit 1; }
+[[ "$MODE" =~ ^(keep|update|add)$ ]] || { log_error "--mode must be keep|update|add"; exit 1; }
 
 if [[ -z "$INSTALL_DIR" ]]; then
   INSTALL_DIR="/opt/MCPSRV"
-  echo "[info] Default install dir: $INSTALL_DIR"
+  log_info "Default install dir: $INSTALL_DIR"
 fi
 if [[ -z "$WORKSPACES_DIR" ]]; then
   WORKSPACES_DIR="/opt/MCPSRV/workspaces"
-  echo "[info] Default workspaces dir: $WORKSPACES_DIR"
+  log_info "Default workspaces dir: $WORKSPACES_DIR"
 fi
 
+log_step "Preparing system dependencies"
 ensure_nginx
 ensure_docker
 ensure_system_tools
@@ -260,6 +261,7 @@ fi
 backup_file "$HTTP80_CONF"
 insert_acme_location
 
+log_step "Configuring certificates"
 CERT_KIND="$(issue_cert_or_fallback "$DOMAIN" "$EMAIL")"
 if [[ "$CERT_KIND" == "le" ]]; then
   CERT_FULLCHAIN="/etc/letsencrypt/live/$DOMAIN/fullchain.pem"
@@ -334,25 +336,26 @@ rm -rf "$INSTALL_DIR/app"
 cp -a "$ROOT_DIR/app" "$INSTALL_DIR/app"
 REQ_FILE="$INSTALL_DIR/app/requirements.txt"
 if grep -q '^fastapi==0\.115\.0$' "$REQ_FILE" 2>/dev/null; then
-  echo "[warn] Found incompatible pinned fastapi==0.115.0 in requirements; sanitizing for fastmcp compatibility"
+  log_warn "Found incompatible pinned fastapi==0.115.0 in requirements; sanitizing for fastmcp compatibility"
   grep -v '^fastapi==0\.115\.0$' "$REQ_FILE" > "$REQ_FILE.tmp"
   mv "$REQ_FILE.tmp" "$REQ_FILE"
 fi
 
 if ! python3 -m venv "$INSTALL_DIR/.venv"; then
-  echo "[warn] python3-venv/ensurepip missing; installing python3-venv and retrying"
+  log_warn "python3-venv/ensurepip missing; installing python3-venv and retrying"
   apt-get update
   apt-get install -y python3-venv
   python3 -m venv "$INSTALL_DIR/.venv"
 fi
 "$INSTALL_DIR/.venv/bin/pip" install --upgrade pip setuptools wheel >/dev/null
 if ! "$INSTALL_DIR/.venv/bin/pip" install -r "$REQ_FILE" >/dev/null; then
-  echo "[warn] Initial pip install failed; retrying after dependency self-heal"
+  log_warn "Initial pip install failed; retrying after dependency self-heal"
   grep -v '^fastapi==0\.115\.0$' "$REQ_FILE" > "$REQ_FILE.tmp" || true
   mv "$REQ_FILE.tmp" "$REQ_FILE"
   "$INSTALL_DIR/.venv/bin/pip" install -r "$REQ_FILE" >/dev/null
 fi
 
+log_step "Installing and enabling systemd services"
 svc_tmp="$(mktemp)"
 render_template "$ROOT_DIR/templates/mcp-runner.service.tmpl" "$svc_tmp" \
   INSTALL_DIR "$INSTALL_DIR" TOKEN "$TOKEN" GITHUB_USER "$GITHUB_USER" WORKSPACES_DIR "$WORKSPACES_DIR" BACKEND_PORT "$BACKEND_PORT"
@@ -366,11 +369,12 @@ systemctl daemon-reload
 systemctl enable --now mcp-runner mcp-workspace-cleanup.timer
 
 if [[ -z "$UPDATE_IMAGE" ]]; then UPDATE_IMAGE="yes"; fi
+log_step "Building Docker runner image"
 if [[ "$UPDATE_IMAGE" == "yes" ]]; then
   DOCKERFILE_PATH="$ROOT_DIR/templates/Dockerfile.base"
   BUILD_DOCKERFILE="$DOCKERFILE_PATH"
   if grep -q 'python3 -m pip install -U pip' "$DOCKERFILE_PATH"; then
-    echo "[warn] Detected legacy Dockerfile pip self-upgrade line; building with sanitized temporary Dockerfile"
+    log_warn "Detected legacy Dockerfile pip self-upgrade line; building with sanitized temporary Dockerfile"
     BUILD_DOCKERFILE="$(mktemp)"
     grep -v 'python3 -m pip install -U pip' "$DOCKERFILE_PATH" > "$BUILD_DOCKERFILE"
   fi
@@ -419,12 +423,17 @@ curl -fsS "https://$DOMAIN${PATH_PREFIX}mcp" -H "Authorization: Bearer $TOKEN" -
 R
 chmod 640 "$REPORT" && chown root:mcp "$REPORT"
 
+log_step "Validating and reloading nginx"
 nginx -t
 systemctl reload nginx
 
-echo "Stream conf: $STREAM_CONF"
-echo "HTTP:80 conf: $HTTP80_CONF"
-echo "MCP URL: https://$DOMAIN${PATH_PREFIX}mcp"
-echo "Health URL: https://$DOMAIN${PATH_PREFIX}health"
-echo "Token: $TOKEN"
-echo "$COD"
+log_step "Installation summary"
+
+log_ok "Stream conf: $STREAM_CONF"
+log_ok "HTTP:80 conf: $HTTP80_CONF"
+log_ok "MCP URL: https://$DOMAIN${PATH_PREFIX}mcp"
+log_ok "Health URL: https://$DOMAIN${PATH_PREFIX}health"
+log_ok "Token: $TOKEN"
+log_info "Codex snippet:"
+printf "%s
+" "$COD"
