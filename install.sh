@@ -315,7 +315,7 @@ else:
 path.write_text(text)
 PYLOC
   fi
-  python3 - "$DOMAIN_CONF" "$CERT_FULLCHAIN" "$CERT_PRIVKEY" <<'PYCERT'
+  python3 - "$DOMAIN_CONF" "$CERT_FULLCHAIN" "$CERT_PRIVKEY" "$HTTPS_PORT" <<'PYCERT'
 import re
 import sys
 from pathlib import Path
@@ -323,9 +323,13 @@ from pathlib import Path
 path = Path(sys.argv[1])
 fullchain = sys.argv[2]
 privkey = sys.argv[3]
+https_port = sys.argv[4]
 text = path.read_text()
 text = re.sub(r"^\s*ssl_certificate\s+.*;$", f"    ssl_certificate {fullchain};", text, flags=re.M)
 text = re.sub(r"^\s*ssl_certificate_key\s+.*;$", f"    ssl_certificate_key {privkey};", text, flags=re.M)
+# normalize listen ports on reruns (fixes legacy malformed values like 1270018443)
+text = re.sub(r"^\s*listen\s+(?!\[::\]:)[^\s]+\s+ssl\s+http2\s+proxy_protocol;\s*$", f"    listen {https_port} ssl http2 proxy_protocol;", text, flags=re.M)
+text = re.sub(r"^\s*listen\s+\[::\]:[^\s]+\s+ssl\s+http2\s+proxy_protocol;\s*$", f"    listen [::]:{https_port} ssl http2 proxy_protocol;", text, flags=re.M)
 path.write_text(text)
 PYCERT
 fi
