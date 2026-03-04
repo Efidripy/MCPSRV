@@ -1,0 +1,25 @@
+server {
+    server_tokens off;
+    server_name {{DOMAIN}};
+    listen {{HTTPS_PORT}} ssl http2 proxy_protocol;
+    listen [::]:{{HTTPS_PORT}} ssl http2 proxy_protocol;
+
+    root /var/www/html/;
+    index index.html;
+
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!eNULL:!MD5:!DES:!RC4:!ADH:!SSLv3:!EXP:!PSK:!DSS;
+
+    ssl_certificate {{CERT_FULLCHAIN}};
+    ssl_certificate_key {{CERT_PRIVKEY}};
+
+    if ($host !~* ^(.+\.)?{{DOMAIN_REGEX}}$ ){return 444;}
+    if ($scheme ~* https) {set $safe 1;}
+    if ($ssl_server_name !~* ^(.+\.)?{{DOMAIN_REGEX}}$ ) {set $safe "${safe}0"; }
+    if ($safe = 10){return 444;}
+
+    error_page 400 401 402 403 500 501 502 503 504 =404 /404;
+    proxy_intercept_errors on;
+
+    {{LOCATION_BLOCK}}
+}
