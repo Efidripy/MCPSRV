@@ -242,19 +242,117 @@ SC
 fi
 backup_file "$STREAM_CONF"
 
-if grep -qE "^\s*${DOMAIN}\s+" "$STREAM_CONF"; then
-  UPSTREAM_NAME="$(awk -v d="$DOMAIN" '$1==d{print $2}' "$STREAM_CONF" | tr -d ';' | head -n1)"
-  HTTPS_PORT="$(awk -v u="$UPSTREAM_NAME" '$1=="upstream"&&$2==u{getline; gsub(/[^0-9]/, "", $0); print $0}' "$STREAM_CONF" | head -n1)"
+DOMAIN_ORIG="$DOMAIN"
+DOMAIN="$(printf '%s' "$DOMAIN" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9.-')"
+if [[ "$DOMAIN" != "$DOMAIN_ORIG" ]]; then
+  log_warn "Domain was normalized from '$DOMAIN_ORIG' to '$DOMAIN'"
+fi
+if [[ ! "$DOMAIN" =~ ^[a-z0-9]([a-z0-9-]*\.)+[a-z0-9-]+$ ]]; then
+  log_error "Invalid domain after normalization: '$DOMAIN'"
+  exit 1
+fi
+
+UPSTREAM_NAME="$(python3 - "$STREAM_CONF" "$DOMAIN" <<'PYSTREAMGET'
+import re
+import sys
+from pathlib import Path
+
+text = Path(sys.argv[1]).read_text()
+domain = sys.argv[2]
+m = re.search(r"map\s+\$ssl_preread_server_name\s+\$sni_name\s*\{(.*?)\}", text, re.S)
+if not m:
+    print("")
+    raise SystemExit(0)
+for line in m.group(1).splitlines():
+    m2 = re.match(r"\s*(\S+)\s+(\S+);\s*$", line)
+    if m2 and m2.group(1) == domain:
+        print(m2.group(2))
+        raise SystemExit(0)
+print("")
+PYSTREAMGET
+)"
+
+if [[ -n "$UPSTREAM_NAME" ]]; then
+  HTTPS_PORT="$(python3 - "$STREAM_CONF" "$UPSTREAM_NAME" <<'PYSTREAMPORT'
+import re
+import sys
+from pathlib import Path
+
+text = Path(sys.argv[1]).read_text()
+upstream = sys.argv[2]
+m = re.search(r"(^|\n)\s*upstream\s+" + re.escape(upstream) + r"\s*\{(.*?)\}", text, re.S)
+if not m:
+    print("")
+    raise SystemExit(0)
+m2 = re.search(r"server\s+[^:]+:(\d+)\s*;", m.group(2))
+print(m2.group(1) if m2 else "")
+PYSTREAMPORT
+)"
+  if [[ -z "$HTTPS_PORT" || ! "$HTTPS_PORT" =~ ^[0-9]+$ || "$HTTPS_PORT" -lt 1 || "$HTTPS_PORT" -gt 65535 ]]; then
+    log_error "Failed to parse valid HTTPS port for upstream '$UPSTREAM_NAME' from $STREAM_CONF"
+    exit 1
+  fi
 else
   HTTPS_PORT="$(choose_port "$STREAM_CONF")"
   UPSTREAM_NAME="mcp_${DOMAIN//./_}"
-  awk -v d="$DOMAIN" -v u="$UPSTREAM_NAME" '
-    /map \$ssl_preread_server_name \$sni_name \{/ {print; inmap=1; next}
-    inmap && /^}/ {print "    " d " " u ";"; inmap=0}
-    {print}
-  ' "$STREAM_CONF" > "$STREAM_CONF.new"
-  mv "$STREAM_CONF.new" "$STREAM_CONF"
-  echo -e "\nupstream $UPSTREAM_NAME {\n    server 127.0.0.1:$HTTPS_PORT;\n}" >> "$STREAM_CONF"
+  python3 - "$STREAM_CONF" "$DOMAIN" "$UPSTREAM_NAME" "$HTTPS_PORT" <<'PYSTREAMPATCH'
+import re
+import sys
+from pathlib import Path
+
+conf = Path(sys.argv[1])
+domain = sys.argv[2]
+upstream = sys.argv[3]
+port = sys.argv[4]
+text = conf.read_text()
+
+mm = re.search(r"map\s+\$ssl_preread_server_name\s+\$sni_name\s*\{(.*?)\}", text, re.S)
+if mm:
+    body = mm.group(1)
+    lines = body.splitlines()
+    cleaned = []
+    stale_upstreams = set()
+    for line in lines:
+        m = re.match(r"\s*(\S+)\s+(\S+);\s*$", line)
+        if not m:
+            cleaned.append(line)
+            continue
+        host, up = m.group(1), m.group(2)
+        if host == domain:
+            continue
+        if host.endswith(domain) and host != domain:
+            stale_upstreams.add(up)
+            continue
+        cleaned.append(line)
+
+    entry = f"    {domain} {upstream};"
+    insert_at = next((i for i,l in enumerate(cleaned) if re.match(r"\s*default\s+", l)), len(cleaned))
+    cleaned.insert(insert_at, entry)
+    new_body = "\n" + "\n".join(cleaned).rstrip() + "\n"
+    text = text[:mm.start(1)] + new_body + text[mm.end(1):]
+
+    for up in stale_upstreams:
+        text = re.sub(r"\n?\s*upstream\s+" + re.escape(up) + r"\s*\{.*?\}\s*", "\n", text, flags=re.S)
+else:
+    text = (
+        f"map $ssl_preread_server_name $sni_name {{\n"
+        f"    default default_backend;\n"
+        f"    {domain} {upstream};\n"
+        f"}}\n\n" + text
+    )
+
+if re.search(r"(^|\n)\s*upstream\s+" + re.escape(upstream) + r"\s*\{", text, re.S):
+    text = re.sub(
+        r"((^|\n)\s*upstream\s+" + re.escape(upstream) + r"\s*\{)(.*?)(\})",
+        r"\1\n    server 127.0.0.1:" + str(port) + r";\n\4",
+        text,
+        flags=re.S,
+    )
+else:
+    text = text.rstrip() + f"\n\nupstream {upstream} {{\n    server 127.0.0.1:{port};\n}}\n"
+
+conf.write_text(text)
+PYSTREAMPATCH
 fi
 
 backup_file "$HTTP80_CONF"
