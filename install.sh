@@ -435,5 +435,4 @@ log_ok "MCP URL: https://$DOMAIN${PATH_PREFIX}mcp"
 log_ok "Health URL: https://$DOMAIN${PATH_PREFIX}health"
 log_ok "Token: $TOKEN"
 log_info "Codex snippet:"
-printf "%s
-" "$COD"
+printf "%s\n" "$COD"
